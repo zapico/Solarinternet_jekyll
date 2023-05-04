@@ -1,0 +1,18 @@
+I"¨<h1 id="offgrid-micro-servers">OFFGRID MICRO SERVERS</h1>
+<p>A simple offgrid solar system can be created using a Raspberry Pi (or equivalent), a standard 12v solar panel with MPTT and a battery. This system</p>
+
+<h2 id="raspberry-pi">Raspberry Pi</h2>
+<p>Raspberry Pi provides a Linux environment which is equivalent to a traditional VPS where a regular stack with Apache or Nginx can be deployed.</p>
+<ol>
+  <li>Raspberry Pi 4 with up to 8gb:</li>
+  <li>Raspberry Pi A+:</li>
+  <li>Raspberry Pi Zero 2 W.</li>
+</ol>
+
+<h2 id="solar-system-and-battery">Solar system and battery</h2>
+<p>A regular solar system includes a solar panel, a MPPT regulator, a battery, and some cables to connect all together.
+In our system we have a cheaper full-size 12v panel of 100W, thi</p>
+
+<h2 id="software">Software</h2>
+<p>A regular server stack can be built using Apache or Nginx, with PHP, Python, MariaDB, MongoDB or any other services needed.</p>
+:ET

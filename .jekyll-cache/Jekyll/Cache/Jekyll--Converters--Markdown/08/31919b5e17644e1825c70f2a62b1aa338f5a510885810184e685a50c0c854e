@@ -1,0 +1,67 @@
+I"ƒ+<h1>Battery status reading</h1>
+<p>Reading the charging status of a battery is not as straightforward as it would seem. Victron energy provides this information from some of their MPPTs through a propietary port called VE.direct. If using an MPTT wihout port, an external battery monitor can be installed, like <a href="https://www.victronenergy.com/battery-monitors/smart-battery-shunt">Victron Smart Battery Shunt</a>. Then one needs a <a href="https://www.victronenergy.com/accessories/ve-direct-to-usb-interface">VE.direct to USB cable</a> to connect the MPPT/shunt to the server through USB.</p>
+
+<p>Once the setup is working the data can be read using serial. The port should be updated to reflect where the cable is connected.</p>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">serial</span>
+<span class="n">sio</span> <span class="o">=</span> <span class="n">serial</span><span class="p">.</span><span class="n">Serial</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="s">'/dev/ttyUSB0'</span><span class="p">,</span><span class="n">baudrate</span><span class="o">=</span><span class="mi">19200</span><span class="p">,</span><span class="n">parity</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">PARITY_NONE</span><span class="p">,</span><span class="n">stopbits</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">STOPBITS_ONE</span><span class="p">,</span><span class="n">bytesize</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">EIGHTBITS</span><span class="p">,</span><span class="n">timeout</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+</code></pre></div></div>
+<p>Detail information about the VE protocol can be found in the <a href="https://www.victronenergy.com/support-and-downloads/technical-information">VE.direct protocel whitepaper</a>. For our application we just use battery charge and load in watt.
+First all lines are read one by one, this can be printed to identify other values that may be interesting.</p>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">line</span> <span class="o">=</span> <span class="n">sio</span><span class="p">.</span><span class="n">readline</span><span class="p">().</span><span class="n">decode</span><span class="p">(</span><span class="s">'iso-8859-1'</span><span class="p">)</span>
+</code></pre></div></div>
+<p>The the lines for power in Watt and percentage of battery are identified and the value extracted from the string.</p>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">line</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="s">"P	"</span><span class="p">)</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+  <span class="n">kw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">line</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="s">"SOC"</span><span class="p">)</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+  <span class="n">battery</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">4</span><span class="p">:])</span><span class="o">/</span><span class="mi">10</span>
+</code></pre></div></div>
+<p>The whole code can be found below and at <a href="https://github.com/zapico/SolarServer">github</a>. It saves the data in a json file for the website to read, but the data can be saved in a database, sent using MQTT or any other option. It reads the data every 10 minutes, this can be changed in the time.sleep() line.</p>
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">serial</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="c1"># Connect to serial
+</span><span class="n">sio</span> <span class="o">=</span> <span class="n">serial</span><span class="p">.</span><span class="n">Serial</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="s">'/dev/ttyUSB0'</span><span class="p">,</span><span class="n">baudrate</span><span class="o">=</span><span class="mi">19200</span><span class="p">,</span><span class="n">parity</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">PARITY_NONE</span><span class="p">,</span><span class="n">stopbits</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">STOPBITS_ONE</span><span class="p">,</span><span class="n">bytesize</span><span class="o">=</span><span class="n">serial</span><span class="p">.</span><span class="n">EIGHTBITS</span><span class="p">,</span><span class="n">timeout</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"connected to: "</span> <span class="o">+</span> <span class="n">sio</span><span class="p">.</span><span class="n">portstr</span><span class="p">)</span>
+<span class="c1"># Init variables
+</span><span class="n">count</span><span class="o">=</span><span class="mi">1</span>
+<span class="n">kw</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">battery</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="c1"># Loop
+</span><span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+    <span class="c1"># Check that serial has read both values
+</span>    <span class="k">if</span> <span class="p">(</span><span class="n">kw</span><span class="o">!=</span><span class="mi">0</span> <span class="ow">and</span> <span class="n">battery</span><span class="o">!=</span><span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">battery</span><span class="o">==</span><span class="mi">100</span><span class="p">):</span>
+        <span class="n">dictionary</span> <span class="o">=</span> <span class="p">{</span>
+           <span class="s">"kw"</span><span class="p">:</span> <span class="n">kw</span><span class="p">,</span>
+           <span class="s">"battery"</span><span class="p">:</span> <span class="n">battery</span><span class="p">,</span>
+           <span class="s">"time"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="p">.</span><span class="n">now</span><span class="p">())</span>
+        <span class="p">}</span>
+        <span class="c1"># Save as status json and to history
+</span>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">"/var/www/thehackfarm/html/battery.json"</span><span class="p">,</span> <span class="s">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="p">.</span><span class="n">dump</span><span class="p">(</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+        <span class="c1"># Append to history.json. This dictionary can then be read with:
+</span>        <span class="c1"># with open('my_file') as f:
+</span>        <span class="c1">#   my_list = [json.loads(line) for line in f]
+</span>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'/var/www/thehackfarm/html/history.json'</span><span class="p">,</span> <span class="s">'a'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="p">.</span><span class="n">dump</span><span class="p">(</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+            <span class="n">f</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">linesep</span><span class="p">)</span>
+        <span class="c1"># Reset numbers and sleep for 10 minutes
+</span>        <span class="n">kw</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">battery</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">time</span><span class="p">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">600</span><span class="p">)</span>
+
+    <span class="n">line</span> <span class="o">=</span> <span class="n">sio</span><span class="p">.</span><span class="n">readline</span><span class="p">().</span><span class="n">decode</span><span class="p">(</span><span class="s">'iso-8859-1'</span><span class="p">)</span>
+    <span class="c1"># read kwh in
+</span>    <span class="k">if</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">!=</span> <span class="n">line</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="s">"P	"</span><span class="p">)):</span>
+        <span class="n">kw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+    <span class="c1"># read battery
+</span>    <span class="k">if</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">!=</span> <span class="n">line</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="s">"SOC"</span><span class="p">)):</span>
+       <span class="n">battery</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">4</span><span class="p">:])</span><span class="o">/</span><span class="mi">10</span>
+       <span class="k">print</span><span class="p">(</span><span class="n">battery</span><span class="p">)</span>
+
+</code></pre></div></div>
+:ET
